@@ -2,7 +2,6 @@ package config
 
 import (
 	"log/slog"
-	"os"
 
 	"github.com/joho/godotenv"
 )
@@ -12,17 +11,9 @@ type Config struct {
 	Port        string
 }
 
-func Load() (*Config, error) {
+func Load() {
 	var err error = godotenv.Load()
-
 	if err != nil {
 		slog.Error("Warning: env file not found, using enviroment variables")
 	}
-
-	var config *Config = &Config{
-		DatabaseUrl: os.Getenv("DATABASE_URL"),
-		Port:        os.Getenv("PORT"),
-	}
-
-	return config, nil
 }

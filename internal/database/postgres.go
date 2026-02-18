@@ -1,40 +1,23 @@
 package database
 
 import (
-	"context"
+	"fmt"
 	"log"
+	"os"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-func Connect(databaseURL string) (*pgxpool.Pool, error) {
-	var ctx context.Context = context.Background()
+var DB *gorm.DB
 
-	var config *pgxpool.Config
+func GetDB() {
 	var err error
-	config, err = pgxpool.ParseConfig(databaseURL)
+	dsn := os.Getenv("DATABASE_URL")
+	fmt.Println("DSN:", dsn)
+	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 
 	if err != nil {
-		log.Printf("Unable to parse DATABASE_URL: %v", err)
-		return nil, err
+		log.Fatal("Failed to connect to database")
 	}
-
-	var pool *pgxpool.Pool
-	pool, err = pgxpool.NewWithConfig(ctx, config)
-
-	if err != nil {
-		log.Printf("Unable to create connection pool: %v", err)
-		return nil, err
-	}
-
-	err = pool.Ping(ctx)
-
-	if err != nil {
-		log.Printf("Unable to ping database: %v", err)
-		pool.Close()
-		return nil, err
-	}
-
-	log.Println("Successfully connected to PostgreSQL database")
-	return pool, nil
 }
