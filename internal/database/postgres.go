@@ -1,10 +1,10 @@
 package database
 
 import (
-	"fmt"
 	"log"
 	"os"
 
+	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -12,9 +12,12 @@ import (
 var DB *gorm.DB
 
 func GetDB() {
-	var err error
+	var err error = godotenv.Load()
+	if err != nil {
+		log.Println("No .env file found. relying on sistem enviroment")
+	}
+
 	dsn := os.Getenv("DATABASE_URL")
-	fmt.Println("DSN:", dsn)
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 
 	if err != nil {
