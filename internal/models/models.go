@@ -4,7 +4,8 @@ import "gorm.io/gorm"
 
 type FileMeta struct {
 	gorm.Model
-	Name     string
-	Location string
-	Size     int
+	ObjectName   string
+	OriginalName string
+	Bucket       string
+	Size         int
 }

@@ -1,1 +1,56 @@
 package handler
+
+import (
+	"file-api-saver/internal/service"
+	"log/slog"
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+)
+
+type FileHandler struct {
+	Service *service.FileService
+}
+
+func (h *FileHandler) UploadFile(c *gin.Context) {
+
+	f, fileHandler, err := c.Request.FormFile("file")
+	if err != nil {
+		slog.Error("Failed to get file from form: " + err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file not provided"})
+		return
+	}
+	defer f.Close()
+
+	meta, err := h.Service.UploadFile(c.Request.Context(), f, fileHandler)
+	if err != nil {
+		slog.Error("upload faied: " + err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "upload failed"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, meta)
+}
+
+func (h *FileHandler) DeleteFile(c *gin.Context) {
+	idStr := c.Param("id")
+	if idStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing id parametr"})
+		return
+	}
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id parametr"})
+		return
+	}
+
+	err = h.Service.DeleteFile(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
