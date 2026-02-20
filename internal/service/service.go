@@ -66,3 +66,12 @@ func (s *FileService) DeleteFile(ctx context.Context, id int) error {
 
 	return nil
 }
+
+func (s *FileService) GetMeta(ctx context.Context) ([]models.FileMeta, error) {
+	metas, err := s.Repo.GetAllMeta(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return metas, err
+}

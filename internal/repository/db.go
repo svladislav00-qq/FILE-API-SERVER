@@ -30,3 +30,11 @@ func (r *FileRepository) GetByID(ctx context.Context, id int) (*models.FileMeta,
 
 	return &meta, nil
 }
+
+func (r *FileRepository) GetAllMeta(ctx context.Context) ([]models.FileMeta, error) {
+	var metas []models.FileMeta
+	if err := r.DB.WithContext(ctx).Find(&metas).Error; err != nil {
+		return nil, err
+	}
+	return metas, nil
+}

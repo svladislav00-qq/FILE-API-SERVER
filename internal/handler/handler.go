@@ -54,3 +54,13 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
+
+func (h *FileHandler) GetMeta(c *gin.Context) {
+	metas, err := h.Service.GetMeta(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, metas)
+}
