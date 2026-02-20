@@ -43,6 +43,7 @@ func main() {
 	r.DELETE("/file/:id", fileHandler.DeleteFile)
 	r.GET("/files", fileHandler.GetMeta)
 	r.GET("/file/:id", fileHandler.GetObject)
+	r.GET("/file/:id/download", fileHandler.DownloadObject)
 
 	r.Run()
 }
