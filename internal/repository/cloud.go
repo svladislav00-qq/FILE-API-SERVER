@@ -30,3 +30,12 @@ func (s *MinioStorage) Upload(ctx context.Context, objectName string, reader io.
 func (s *MinioStorage) Delete(ctx context.Context, objectName string) error {
 	return s.Client.RemoveObject(ctx, s.Bucket, objectName, minio.RemoveObjectOptions{})
 }
+
+func (s *MinioStorage) GetObject(ctx context.Context, objectName string) (*minio.Object, error) {
+	obj, err := s.Client.GetObject(ctx, s.Bucket, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return obj, err
+}

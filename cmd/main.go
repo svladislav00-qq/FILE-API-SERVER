@@ -42,6 +42,7 @@ func main() {
 	r.POST("/file", fileHandler.UploadFile)
 	r.DELETE("/file/:id", fileHandler.DeleteFile)
 	r.GET("/files", fileHandler.GetMeta)
+	r.GET("/file/:id", fileHandler.GetObject)
 
 	r.Run()
 }

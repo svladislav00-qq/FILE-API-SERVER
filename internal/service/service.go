@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 
 	"github.com/google/uuid"
+	"github.com/minio/minio-go/v7"
 )
 
 type FileService struct {
@@ -74,4 +75,20 @@ func (s *FileService) GetMeta(ctx context.Context) ([]models.FileMeta, error) {
 	}
 
 	return metas, err
+}
+
+func (s *FileService) GetObject(ctx context.Context, id int) (*models.FileMeta, *minio.Object, error) {
+	// 1. Получить метаданные
+	meta, err := s.Repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// 2. Получить объект по его имени
+	obj, err := s.Storage.GetObject(ctx, meta.ObjectName)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return meta, obj, nil
 }
