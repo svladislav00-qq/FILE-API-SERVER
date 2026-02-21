@@ -26,7 +26,7 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 
 	meta, err := h.Service.UploadFile(c.Request.Context(), f, fileHandler)
 	if err != nil {
-		slog.Error("upload faied: " + err.Error())
+		slog.Error("upload failed: " + err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "upload failed"})
 		return
 	}
@@ -37,13 +37,13 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 func (h *FileHandler) DeleteFile(c *gin.Context) {
 	idStr := c.Param("id")
 	if idStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing id parametr"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing id parameter"})
 		return
 	}
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id parametr"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id parameter"})
 		return
 	}
 
@@ -69,13 +69,13 @@ func (h *FileHandler) GetMeta(c *gin.Context) {
 func (h *FileHandler) GetObject(c *gin.Context) {
 	idStr := c.Param("id")
 	if idStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing id parametr"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing id parameter"})
 		return
 	}
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id parametr"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id parameter"})
 		return
 	}
 

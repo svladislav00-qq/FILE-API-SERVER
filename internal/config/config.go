@@ -14,6 +14,6 @@ type Config struct {
 func Load() {
 	var err error = godotenv.Load()
 	if err != nil {
-		slog.Error("Warning: env file not found, using enviroment variables")
+		slog.Error("Warning: env file not found, using environment variables")
 	}
 }
