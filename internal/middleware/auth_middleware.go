@@ -47,6 +47,13 @@ func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
+		role, ok := claims["role"].(string)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid role"})
+			return
+		}
+
+		c.Set("role", role)
 		c.Set("user_id", userID)
 		c.Next()
 	}
