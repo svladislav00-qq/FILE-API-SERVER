@@ -9,6 +9,7 @@ import (
 type Config struct {
 	DatabaseUrl string
 	Port        string
+	JWTSecret   string
 }
 
 func Load() {
