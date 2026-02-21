@@ -39,6 +39,16 @@ func main() {
 		Service: fileService,
 	}
 
+	userService := &service.UserService{
+		Repo: &repository.UserRepository{DB: utils.DB},
+	}
+
+	userHandler := &handler.UserHandler{
+		Service: userService,
+	}
+
+	r.POST("/auth/register", userHandler.CreateUser)
+
 	r.POST("/file", fileHandler.UploadFile)
 	r.DELETE("/file/:id", fileHandler.DeleteFile)
 	r.GET("/files", fileHandler.GetMeta)

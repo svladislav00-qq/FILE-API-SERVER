@@ -15,8 +15,8 @@ type FileMeta struct {
 
 type User struct {
 	gorm.Model
-	Email    string
-	Password string
-	Name     string
-	Role     string
+	Email    string `json:"email"`
+	Password string `json:"-"`
+	Name     string `json:"name"`
+	Role     string `json:"role"`
 }
