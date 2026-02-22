@@ -17,6 +17,15 @@ type RegisterRequest struct {
 	Role     string `json:"role"`
 }
 
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+type LoginResponse struct {
+	Token string `json:"token"`
+}
+
 type UserHandler struct {
 	Service *service.UserService
 }
@@ -56,4 +65,23 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, user)
+}
+
+func (h *UserHandler) LoginUser(c *gin.Context) {
+	var loginRequest LoginRequest
+	if err := c.BindJSON(&loginRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	token, err := h.Service.LoginUser(c.Request.Context(), &models.User{
+		Email:    loginRequest.Email,
+		Password: loginRequest.Password,
+	})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, token)
 }

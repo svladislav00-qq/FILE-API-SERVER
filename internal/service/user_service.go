@@ -5,17 +5,21 @@ import (
 	"errors"
 	"file-api-saver/internal/models"
 	"file-api-saver/internal/repository"
+	"time"
 
+	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
-	Repo *repository.UserRepository
+	Repo      *repository.UserRepository
+	JWTSecret string
 }
 
 var (
-	ErrInvalidRole = errors.New("invalid role")
-	ErrMailExists  = errors.New("email is already exists")
+	ErrInvalidRole        = errors.New("invalid role")
+	ErrMailExists         = errors.New("email is already exists")
+	ErrInvalidCredentials = errors.New("Invalid credentials")
 )
 
 func (u *UserService) CreateUser(ctx context.Context, user *models.User) (*models.User, error) {
@@ -57,4 +61,35 @@ func (u *UserService) CreateUser(ctx context.Context, user *models.User) (*model
 	}
 
 	return userData, nil
+}
+
+func (u *UserService) LoginUser(ctx context.Context, user *models.User) (string, error) {
+	userData, err := u.Repo.GetByEmail(ctx, user.Email)
+	if err != nil {
+		return "", err
+	}
+
+	if userData == nil {
+		return "", err
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(userData.Password), []byte(user.Password))
+	if err != nil {
+		return "", err
+	}
+
+	claims := jwt.MapClaims{
+		"user_id": userData.ID,
+		"email":   userData.Email,
+		"exp":     time.Now().Add(24 * time.Hour).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	tokenString, err := token.SignedString([]byte(u.JWTSecret))
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
 }

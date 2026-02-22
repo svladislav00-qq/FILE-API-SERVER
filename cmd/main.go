@@ -40,7 +40,8 @@ func main() {
 	}
 
 	userService := &service.UserService{
-		Repo: &repository.UserRepository{DB: utils.DB},
+		Repo:      &repository.UserRepository{DB: utils.DB},
+		JWTSecret: config.AppConfig.JWTSecret,
 	}
 
 	userHandler := &handler.UserHandler{
@@ -48,6 +49,7 @@ func main() {
 	}
 
 	r.POST("/auth/register", userHandler.CreateUser)
+	r.POST("/auth/login", userHandler.LoginUser)
 
 	r.POST("/file", fileHandler.UploadFile)
 	r.DELETE("/file/:id", fileHandler.DeleteFile)
