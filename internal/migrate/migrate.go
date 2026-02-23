@@ -12,5 +12,5 @@ func init() {
 }
 
 func main() {
-	database.DB.AutoMigrate(&models.FileMeta{})
+	database.DB.AutoMigrate(&models.User{}, &models.FileMeta{})
 }
