@@ -30,31 +30,26 @@ func (r *FileRepository) DeleteByUser(ctx context.Context, id int, userID uint) 
 
 func (r *FileRepository) GetByID(ctx context.Context, id int) (*models.FileMeta, error) {
 	var meta models.FileMeta
-
 	err := r.DB.WithContext(ctx).First(&meta, id).Error
-
 	if err != nil {
 		return nil, err
 	}
-
 	return &meta, nil
 }
 
 func (r *FileRepository) GetByIDByUser(ctx context.Context, id int, userID uint) (*models.FileMeta, error) {
 	var meta models.FileMeta
-
 	err := r.DB.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&meta).Error
-
 	if err != nil {
 		return nil, err
 	}
-
 	return &meta, nil
 }
 
 func (r *FileRepository) GetAll(ctx context.Context) ([]models.FileMeta, error) {
 	var datas []models.FileMeta
 	err := r.DB.WithContext(ctx).Unscoped().Preload("User").Find(&datas).Error
+
 	return datas, err
 }
 
