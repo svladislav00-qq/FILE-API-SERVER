@@ -56,10 +56,17 @@ func main() {
 	protected.Use(middleware.AuthMiddleware(&config.AppConfig))
 	{
 		protected.POST("", fileHandler.UploadFile)
-		protected.DELETE(":id", fileHandler.DeleteFile)
+		protected.DELETE("/:id", fileHandler.DeleteFile)
 		protected.GET("/allfiles", fileHandler.GetFileData)
 		protected.GET("/:id", fileHandler.GetObject)
 		protected.GET("/:id/download", fileHandler.DownloadObject)
+	}
+
+	admin := r.Group("/admin/file", middleware.AuthMiddleware(&config.AppConfig), middleware.RoleMiddleware("admin"))
+	{
+		admin.GET("/allfiles", fileHandler.GetFileData)
+		admin.DELETE("/:id", fileHandler.DeleteFile)
+		admin.GET("/:id", fileHandler.GetObject)
 	}
 
 	r.Run()

@@ -47,11 +47,17 @@ func (s *FileService) UploadFile(ctx context.Context, file multipart.File, heade
 	return meta, nil
 }
 
-func (s *FileService) DeleteFile(ctx context.Context, id int, userID uint) error {
+func (s *FileService) DeleteFile(ctx context.Context, id int, userID uint, role string) error {
+	var (
+		meta *models.FileMeta
+		err  error
+	)
+
 	// 1. Получить метаданные
-	meta, err := s.Repo.GetByID(ctx, id, userID)
-	if err != nil {
-		return err
+	if role == "admin" {
+		meta, err = s.Repo.GetByID(ctx, id)
+	} else {
+		meta, err = s.Repo.GetByIDByUser(ctx, id, userID)
 	}
 
 	// 2. Удалить из MinIO
@@ -61,7 +67,12 @@ func (s *FileService) DeleteFile(ctx context.Context, id int, userID uint) error
 	}
 
 	// 3. Удалить из бд
-	err = s.Repo.Delete(ctx, id, userID)
+	if role == "admin" {
+		err = s.Repo.Delete(ctx, id)
+	} else {
+		err = s.Repo.DeleteByUser(ctx, id, userID)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -69,19 +80,25 @@ func (s *FileService) DeleteFile(ctx context.Context, id int, userID uint) error
 	return nil
 }
 
-func (s *FileService) GetMeta(ctx context.Context, userID uint) ([]models.FileMeta, error) {
-	metas, err := s.Repo.GetAllData(ctx, userID)
-	if err != nil {
-		return nil, err
+func (s *FileService) GetAllData(ctx context.Context, userID uint, role string) ([]models.FileMeta, error) {
+	if role == "admin" {
+		return s.Repo.GetAll(ctx)
 	}
-
-	return metas, err
+	return s.Repo.GetAllByUser(ctx, userID)
 }
 
-func (s *FileService) GetObject(ctx context.Context, id int, userID uint) (*models.FileMeta, *minio.Object, error) {
-
+func (s *FileService) GetObject(ctx context.Context, id int, userID uint, role string) (*models.FileMeta, *minio.Object, error) {
+	var (
+		meta *models.FileMeta
+		err  error
+	)
 	// 1. Получить метаданные
-	meta, err := s.Repo.GetByID(ctx, id, userID)
+	if role == "admin" {
+		meta, err = s.Repo.GetByID(ctx, id)
+	} else {
+		meta, err = s.Repo.GetByIDByUser(ctx, id, userID)
+	}
+
 	if err != nil {
 		return nil, nil, err
 	}

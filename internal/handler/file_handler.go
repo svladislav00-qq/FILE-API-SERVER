@@ -46,6 +46,17 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 }
 
 func (h *FileHandler) DeleteFile(c *gin.Context) {
+	roleInterface, exists := c.Get("role")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "role not found"})
+	}
+
+	role, ok := roleInterface.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid role"})
+		return
+	}
+
 	userIdInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
@@ -70,7 +81,7 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 		return
 	}
 
-	err = h.Service.DeleteFile(c.Request.Context(), id, userID)
+	err = h.Service.DeleteFile(c.Request.Context(), id, userID, role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -80,6 +91,17 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 }
 
 func (h *FileHandler) GetFileData(c *gin.Context) {
+	roleInterface, exists := c.Get("role")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "role not found"})
+	}
+
+	role, ok := roleInterface.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid role"})
+		return
+	}
+
 	userIdInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
@@ -92,7 +114,7 @@ func (h *FileHandler) GetFileData(c *gin.Context) {
 		return
 	}
 
-	metas, err := h.Service.GetMeta(c.Request.Context(), userID)
+	metas, err := h.Service.GetAllData(c.Request.Context(), userID, role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -102,6 +124,17 @@ func (h *FileHandler) GetFileData(c *gin.Context) {
 }
 
 func (h *FileHandler) GetObject(c *gin.Context) {
+	roleInterface, exists := c.Get("role")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "role not found"})
+	}
+
+	role, ok := roleInterface.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid role"})
+		return
+	}
+
 	userIdInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
@@ -126,7 +159,7 @@ func (h *FileHandler) GetObject(c *gin.Context) {
 		return
 	}
 
-	meta, obj, err := h.Service.GetObject(c.Request.Context(), id, userID)
+	meta, obj, err := h.Service.GetObject(c.Request.Context(), id, userID, role)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
 		return
@@ -146,6 +179,17 @@ func (h *FileHandler) GetObject(c *gin.Context) {
 }
 
 func (h *FileHandler) DownloadObject(c *gin.Context) {
+	roleInterface, exists := c.Get("role")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "role not found"})
+	}
+
+	role, ok := roleInterface.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid role"})
+		return
+	}
+
 	userIdInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
@@ -170,7 +214,7 @@ func (h *FileHandler) DownloadObject(c *gin.Context) {
 		return
 	}
 
-	meta, obj, err := h.Service.GetObject(c.Request.Context(), id, userID)
+	meta, obj, err := h.Service.GetObject(c.Request.Context(), id, userID, role)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
 		return
