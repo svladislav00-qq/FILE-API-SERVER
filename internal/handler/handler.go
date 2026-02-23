@@ -15,6 +15,17 @@ type FileHandler struct {
 }
 
 func (h *FileHandler) UploadFile(c *gin.Context) {
+	userIdInterface, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	userID, ok := userIdInterface.(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
+		return
+	}
 
 	f, fileHandler, err := c.Request.FormFile("file")
 	if err != nil {
@@ -24,7 +35,7 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 	}
 	defer f.Close()
 
-	meta, err := h.Service.UploadFile(c.Request.Context(), f, fileHandler)
+	meta, err := h.Service.UploadFile(c.Request.Context(), f, fileHandler, userID)
 	if err != nil {
 		slog.Error("upload failed: " + err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "upload failed"})
@@ -35,6 +46,18 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 }
 
 func (h *FileHandler) DeleteFile(c *gin.Context) {
+	userIdInterface, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	userID, ok := userIdInterface.(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
+		return
+	}
+
 	idStr := c.Param("id")
 	if idStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing id parameter"})
@@ -47,7 +70,7 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 		return
 	}
 
-	err = h.Service.DeleteFile(c.Request.Context(), id)
+	err = h.Service.DeleteFile(c.Request.Context(), id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -56,8 +79,20 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func (h *FileHandler) GetMeta(c *gin.Context) {
-	metas, err := h.Service.GetMeta(c.Request.Context())
+func (h *FileHandler) GetFileData(c *gin.Context) {
+	userIdInterface, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	userID, ok := userIdInterface.(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	metas, err := h.Service.GetMeta(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -67,6 +102,18 @@ func (h *FileHandler) GetMeta(c *gin.Context) {
 }
 
 func (h *FileHandler) GetObject(c *gin.Context) {
+	userIdInterface, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	userID, ok := userIdInterface.(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
+		return
+	}
+
 	idStr := c.Param("id")
 	if idStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing id parameter"})
@@ -79,7 +126,7 @@ func (h *FileHandler) GetObject(c *gin.Context) {
 		return
 	}
 
-	meta, obj, err := h.Service.GetObject(c.Request.Context(), id)
+	meta, obj, err := h.Service.GetObject(c.Request.Context(), id, userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
 		return
@@ -99,6 +146,18 @@ func (h *FileHandler) GetObject(c *gin.Context) {
 }
 
 func (h *FileHandler) DownloadObject(c *gin.Context) {
+	userIdInterface, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	userID, ok := userIdInterface.(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
+		return
+	}
+
 	idStr := c.Param("id")
 	if idStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing id parametr"})
@@ -111,7 +170,7 @@ func (h *FileHandler) DownloadObject(c *gin.Context) {
 		return
 	}
 
-	meta, obj, err := h.Service.GetObject(c.Request.Context(), id)
+	meta, obj, err := h.Service.GetObject(c.Request.Context(), id, userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
 		return

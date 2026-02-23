@@ -3,6 +3,7 @@ package main
 import (
 	"file-api-saver/internal/config"
 	"file-api-saver/internal/handler"
+	"file-api-saver/internal/middleware"
 	"file-api-saver/internal/repository"
 	"file-api-saver/internal/service"
 	"file-api-saver/internal/utils"
@@ -51,11 +52,15 @@ func main() {
 	r.POST("/auth/register", userHandler.CreateUser)
 	r.POST("/auth/login", userHandler.LoginUser)
 
-	r.POST("/file", fileHandler.UploadFile)
-	r.DELETE("/file/:id", fileHandler.DeleteFile)
-	r.GET("/files", fileHandler.GetMeta)
-	r.GET("/file/:id", fileHandler.GetObject)
-	r.GET("/file/:id/download", fileHandler.DownloadObject)
+	protected := r.Group("/file")
+	protected.Use(middleware.AuthMiddleware(&config.AppConfig))
+	{
+		protected.POST("", fileHandler.UploadFile)
+		protected.DELETE(":id", fileHandler.DeleteFile)
+		protected.GET("/allfiles", fileHandler.GetFileData)
+		protected.GET("/:id", fileHandler.GetObject)
+		protected.GET("/:id/download", fileHandler.DownloadObject)
+	}
 
 	r.Run()
 }

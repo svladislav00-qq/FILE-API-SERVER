@@ -36,12 +36,16 @@ func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 
 		claims := token.Claims.(jwt.MapClaims)
 
-		var userID string
+		var userID uint
 		switch v := claims["user_id"].(type) {
 		case string:
-			userID = v
+			id64, err := strconv.ParseUint(v, 10, 64)
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid user_id"})
+			}
+			userID = uint(id64)
 		case float64:
-			userID = strconv.FormatInt(int64(v), 10)
+			userID = uint(v)
 		default:
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
 			return

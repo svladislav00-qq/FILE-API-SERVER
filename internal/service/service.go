@@ -16,7 +16,7 @@ type FileService struct {
 	Repo    *repository.FileRepository
 }
 
-func (s *FileService) UploadFile(ctx context.Context, file multipart.File, header *multipart.FileHeader) (*models.FileMeta, error) {
+func (s *FileService) UploadFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, userID uint) (*models.FileMeta, error) {
 	objectName := fmt.Sprintf("%s-%s", uuid.New().String(), header.Filename)
 
 	err := s.Storage.Upload(
@@ -35,6 +35,7 @@ func (s *FileService) UploadFile(ctx context.Context, file multipart.File, heade
 		OriginalName: header.Filename,
 		Bucket:       s.Storage.Bucket,
 		Size:         int(header.Size),
+		UserID:       userID,
 	}
 
 	err = s.Repo.Create(ctx, meta)
@@ -46,9 +47,9 @@ func (s *FileService) UploadFile(ctx context.Context, file multipart.File, heade
 	return meta, nil
 }
 
-func (s *FileService) DeleteFile(ctx context.Context, id int) error {
+func (s *FileService) DeleteFile(ctx context.Context, id int, userID uint) error {
 	// 1. Получить метаданные
-	meta, err := s.Repo.GetByID(ctx, id)
+	meta, err := s.Repo.GetByID(ctx, id, userID)
 	if err != nil {
 		return err
 	}
@@ -60,7 +61,7 @@ func (s *FileService) DeleteFile(ctx context.Context, id int) error {
 	}
 
 	// 3. Удалить из бд
-	err = s.Repo.Delete(ctx, id)
+	err = s.Repo.Delete(ctx, id, userID)
 	if err != nil {
 		return err
 	}
@@ -68,8 +69,8 @@ func (s *FileService) DeleteFile(ctx context.Context, id int) error {
 	return nil
 }
 
-func (s *FileService) GetMeta(ctx context.Context) ([]models.FileMeta, error) {
-	metas, err := s.Repo.GetAllMeta(ctx)
+func (s *FileService) GetMeta(ctx context.Context, userID uint) ([]models.FileMeta, error) {
+	metas, err := s.Repo.GetAllData(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -77,9 +78,10 @@ func (s *FileService) GetMeta(ctx context.Context) ([]models.FileMeta, error) {
 	return metas, err
 }
 
-func (s *FileService) GetObject(ctx context.Context, id int) (*models.FileMeta, *minio.Object, error) {
+func (s *FileService) GetObject(ctx context.Context, id int, userID uint) (*models.FileMeta, *minio.Object, error) {
+
 	// 1. Получить метаданные
-	meta, err := s.Repo.GetByID(ctx, id)
+	meta, err := s.Repo.GetByID(ctx, id, userID)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -81,6 +81,7 @@ func (u *UserService) LoginUser(ctx context.Context, user *models.User) (string,
 	claims := jwt.MapClaims{
 		"user_id": userData.ID,
 		"email":   userData.Email,
+		"role":    userData.Role,
 		"exp":     time.Now().Add(24 * time.Hour).Unix(),
 	}
 
