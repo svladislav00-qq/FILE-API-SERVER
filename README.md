@@ -84,7 +84,7 @@ Authorization: Bearer <token>
 ```
 
 ## Структура проекта 
-
+```
 cmd/
 internal/
 ├── config
@@ -95,3 +95,4 @@ internal/
 ├── repository
 ├── service
 ├── utils
+```
