@@ -4,6 +4,7 @@ import (
 	"file-api-saver/internal/config"
 	"file-api-saver/internal/handler"
 	"file-api-saver/internal/middleware"
+	"file-api-saver/internal/models"
 	"file-api-saver/internal/repository"
 	"file-api-saver/internal/service"
 	"file-api-saver/internal/utils"
@@ -21,6 +22,10 @@ func main() {
 
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
+
+	if err := utils.DB.AutoMigrate(&models.User{}, &models.FileMeta{}); err != nil {
+		panic(err)
+	}
 
 	storage := &repository.MinioStorage{
 		Client: utils.MinioClient,
@@ -69,5 +74,12 @@ func main() {
 		admin.GET("/:id", fileHandler.GetObject)
 	}
 
-	r.Run()
+	port := config.AppConfig.Port
+	if port == "" {
+		port = "8080"
+	}
+
+	if err := r.Run(":" + port); err != nil {
+		panic(err)
+	}
 }

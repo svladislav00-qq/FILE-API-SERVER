@@ -12,6 +12,10 @@ type MinioStorage struct {
 	Bucket string
 }
 
+func (s *MinioStorage) GetBucket() string {
+	return s.Bucket
+}
+
 func (s *MinioStorage) Upload(ctx context.Context, objectName string, reader io.Reader, size int64, contentType string) error {
 	_, err := s.Client.PutObject(
 		ctx,

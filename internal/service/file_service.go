@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 	"file-api-saver/internal/models"
-	"file-api-saver/internal/repository"
 	"fmt"
+	"io"
 	"mime/multipart"
 
 	"github.com/google/uuid"
@@ -12,8 +12,27 @@ import (
 )
 
 type FileService struct {
-	Storage *repository.MinioStorage
-	Repo    *repository.FileRepository
+	Storage FileStorage
+	Repo    FileRepository
+}
+
+// FileStorage is the external object-store boundary used by FileService.
+type FileStorage interface {
+	Upload(context.Context, string, io.Reader, int64, string) error
+	Delete(context.Context, string) error
+	GetObject(context.Context, string) (*minio.Object, error)
+	GetBucket() string
+}
+
+// FileRepository is the database boundary used by FileService.
+type FileRepository interface {
+	Create(context.Context, *models.FileMeta) error
+	Delete(context.Context, int) error
+	DeleteByUser(context.Context, int, uint) error
+	GetByID(context.Context, int) (*models.FileMeta, error)
+	GetByIDByUser(context.Context, int, uint) (*models.FileMeta, error)
+	GetAll(context.Context) ([]models.FileMeta, error)
+	GetAllByUser(context.Context, uint) ([]models.FileMeta, error)
 }
 
 func (s *FileService) UploadFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, userID uint) (*models.FileMeta, error) {
@@ -33,7 +52,7 @@ func (s *FileService) UploadFile(ctx context.Context, file multipart.File, heade
 	meta := &models.FileMeta{
 		ObjectName:   objectName,
 		OriginalName: header.Filename,
-		Bucket:       s.Storage.Bucket,
+		Bucket:       s.Storage.GetBucket(),
 		Size:         int(header.Size),
 		UserID:       userID,
 	}
@@ -58,6 +77,9 @@ func (s *FileService) DeleteFile(ctx context.Context, id int, userID uint, role 
 		meta, err = s.Repo.GetByID(ctx, id)
 	} else {
 		meta, err = s.Repo.GetByIDByUser(ctx, id, userID)
+	}
+	if err != nil {
+		return err
 	}
 
 	// 2. Удалить из MinIO

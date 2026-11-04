@@ -20,7 +20,7 @@ func CreateCloud() {
 	endpoint := os.Getenv("ENDPOINT")
 	accessKeyID := os.Getenv("ACCESS_KEY_ID")
 	secretAccessKeyID := os.Getenv("SECRET_ACCESS_KEY_ID")
-	useSSL, _ := strconv.ParseBool("USE_SSL")
+	useSSL, _ := strconv.ParseBool(os.Getenv("USE_SSL"))
 
 	client, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKeyID, ""),

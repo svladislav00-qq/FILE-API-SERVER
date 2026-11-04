@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"file-api-saver/internal/models"
-	"file-api-saver/internal/repository"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -12,8 +11,16 @@ import (
 )
 
 type UserService struct {
-	Repo      *repository.UserRepository
+	Repo      UserRepository
 	JWTSecret string
+}
+
+// UserRepository contains exactly the database operations needed by UserService.
+// Keeping this interface next to its consumer makes the service easy to test
+// without PostgreSQL and keeps the production repository compatible by default.
+type UserRepository interface {
+	GetByEmail(context.Context, string) (*models.User, error)
+	CreateUser(context.Context, *models.User) error
 }
 
 var (
@@ -70,12 +77,12 @@ func (u *UserService) LoginUser(ctx context.Context, user *models.User) (string,
 	}
 
 	if userData == nil {
-		return "", err
+		return "", ErrInvalidCredentials
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(userData.Password), []byte(user.Password))
 	if err != nil {
-		return "", err
+		return "", ErrInvalidCredentials
 	}
 
 	claims := jwt.MapClaims{
