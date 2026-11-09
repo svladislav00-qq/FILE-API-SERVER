@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"file-api-saver/internal/models"
 	"fmt"
 	"io"
@@ -17,6 +18,8 @@ type FileService struct {
 }
 
 // FileStorage is the external object-store boundary used by FileService.
+//
+//go:generate mockery --name=FileStorage --output=./mocks --outpkg=mocks
 type FileStorage interface {
 	Upload(context.Context, string, io.Reader, int64, string) error
 	Delete(context.Context, string) error
@@ -25,6 +28,8 @@ type FileStorage interface {
 }
 
 // FileRepository is the database boundary used by FileService.
+//
+//go:generate mockery --name=FileRepository --output=./mocks --outpkg=mocks
 type FileRepository interface {
 	Create(context.Context, *models.FileMeta) error
 	Delete(context.Context, int) error
@@ -34,6 +39,8 @@ type FileRepository interface {
 	GetAll(context.Context) ([]models.FileMeta, error)
 	GetAllByUser(context.Context, uint) ([]models.FileMeta, error)
 }
+
+var errFileNotFound = errors.New("file not found")
 
 func (s *FileService) UploadFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, userID uint) (*models.FileMeta, error) {
 	objectName := fmt.Sprintf("%s-%s", uuid.New().String(), header.Filename)
@@ -78,8 +85,13 @@ func (s *FileService) DeleteFile(ctx context.Context, id int, userID uint, role 
 	} else {
 		meta, err = s.Repo.GetByIDByUser(ctx, id, userID)
 	}
+
 	if err != nil {
 		return err
+	}
+
+	if meta == nil {
+		return errFileNotFound
 	}
 
 	// 2. Удалить из MinIO

@@ -18,6 +18,8 @@ type UserService struct {
 // UserRepository contains exactly the database operations needed by UserService.
 // Keeping this interface next to its consumer makes the service easy to test
 // without PostgreSQL and keeps the production repository compatible by default.
+//
+//go:generate mockery --name=UserRepository --output=./mocks --outpkg=mocks
 type UserRepository interface {
 	GetByEmail(context.Context, string) (*models.User, error)
 	CreateUser(context.Context, *models.User) error
