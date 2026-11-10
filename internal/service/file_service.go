@@ -116,9 +116,20 @@ func (s *FileService) DeleteFile(ctx context.Context, id int, userID uint, role 
 
 func (s *FileService) GetAllData(ctx context.Context, userID uint, role string) ([]models.FileMeta, error) {
 	if role == "admin" {
-		return s.Repo.GetAll(ctx)
+		meta, err := s.Repo.GetAll(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return meta, nil
+	} else {
+		meta, err := s.Repo.GetAllByUser(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		return meta, nil
 	}
-	return s.Repo.GetAllByUser(ctx, userID)
 }
 
 func (s *FileService) GetObject(ctx context.Context, id int, userID uint, role string) (*models.FileMeta, *minio.Object, error) {
@@ -135,6 +146,10 @@ func (s *FileService) GetObject(ctx context.Context, id int, userID uint, role s
 
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if meta == nil {
+		return nil, nil, ErrFileNotFound
 	}
 
 	// 2. Получить объект по его имени

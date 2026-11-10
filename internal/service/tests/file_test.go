@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"testing"
 
+	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
 )
@@ -40,13 +41,7 @@ func TestUploadFileHappyCase(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := mocks.NewFileRepository(t)
-			storage := mocks.NewFileStorage(t)
-
-			fileService := service.FileService{
-				Repo:    repo,
-				Storage: storage,
-			}
+			fileService, repo, storage := createFileServiceWithStorageAndRepo(t)
 
 			storage.On(
 				"Upload",
@@ -101,11 +96,9 @@ func TestUploadFileHappyCase(t *testing.T) {
 func TestUploadFileMinioErr(t *testing.T) {
 	minioErr := errors.New("minio error")
 
-	repo := mocks.NewFileRepository(t)
 	storage := mocks.NewFileStorage(t)
 
 	fileService := &service.FileService{
-		Repo:    repo,
 		Storage: storage,
 	}
 
@@ -140,13 +133,7 @@ func TestUploadFilePostgresErr(t *testing.T) {
 
 	var uploadedObjectName string
 
-	repo := mocks.NewFileRepository(t)
-	storage := mocks.NewFileStorage(t)
-
-	fileService := &service.FileService{
-		Repo:    repo,
-		Storage: storage,
-	}
+	fileService, repo, storage := createFileServiceWithStorageAndRepo(t)
 
 	storage.On(
 		"Upload",
@@ -216,13 +203,7 @@ func TestDeleteFileSuccess(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := mocks.NewFileRepository(t)
-			storage := mocks.NewFileStorage(t)
-
-			fileService := &service.FileService{
-				Repo:    repo,
-				Storage: storage,
-			}
+			fileService, repo, storage := createFileServiceWithStorageAndRepo(t)
 
 			var userID uint
 			var fileID int
@@ -306,13 +287,7 @@ func TestDeleteFileGetUserError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := mocks.NewFileRepository(t)
-			storage := mocks.NewFileStorage(t)
-
-			fileService := &service.FileService{
-				Repo:    repo,
-				Storage: storage,
-			}
+			fileService, repo := createFileServiceOnlyRepo(t)
 
 			if tc.role == "admin" {
 				repo.On(
@@ -367,13 +342,7 @@ func TestDeleteFileMinioError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := mocks.NewFileRepository(t)
-			storage := mocks.NewFileStorage(t)
-
-			fileService := &service.FileService{
-				Repo:    repo,
-				Storage: storage,
-			}
+			fileService, repo, storage := createFileServiceWithStorageAndRepo(t)
 
 			if tc.role == "admin" {
 				repo.On(
@@ -425,13 +394,7 @@ func TestDeleteFileNilMetaError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := mocks.NewFileRepository(t)
-			storage := mocks.NewFileStorage(t)
-
-			fileService := &service.FileService{
-				Repo:    repo,
-				Storage: storage,
-			}
+			fileService, repo := createFileServiceOnlyRepo(t)
 
 			if tc.role == "admin" {
 				repo.On(
@@ -490,13 +453,7 @@ func TestDeleteFilePostgresError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := mocks.NewFileRepository(t)
-			storage := mocks.NewFileStorage(t)
-
-			fileService := &service.FileService{
-				Repo:    repo,
-				Storage: storage,
-			}
+			fileService, repo, storage := createFileServiceWithStorageAndRepo(t)
 
 			if tc.role == "admin" {
 				repo.On(
@@ -547,6 +504,355 @@ func TestDeleteFilePostgresError(t *testing.T) {
 	}
 }
 
+func TestGetAllDataSuccess(t *testing.T) {
+	existingData := make([]models.FileMeta, 0)
+
+	testCases := []struct {
+		name         string
+		role         string
+		existingData []models.FileMeta
+	}{
+		{
+			name:         "Success for admin",
+			role:         "admin",
+			existingData: existingData,
+		},
+		{
+			name:         "Success for user",
+			role:         "user",
+			existingData: existingData,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			fileService, repo := createFileServiceOnlyRepo(t)
+
+			if tc.role == "admin" {
+
+				repo.On(
+					"GetAll",
+					mock.Anything,
+				).Return(tc.existingData, nil).Once()
+			} else {
+				repo.On(
+					"GetAllByUser",
+					mock.Anything,
+					mock.Anything,
+				).Return(tc.existingData, nil).Once()
+			}
+
+			got, err := fileService.GetAllData(context.Background(), 1, tc.role)
+			if got == nil {
+				t.Fatal("meta can't be empty")
+			}
+
+			if err != nil {
+				t.Fatalf("want nil error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestGetAllDataError(t *testing.T) {
+	dbErr := errors.New("data base error")
+
+	testCases := []struct {
+		name string
+		role string
+	}{
+		{
+			name: "Success for admin",
+			role: "admin",
+		},
+		{
+			name: "Success for user",
+			role: "user",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := mocks.NewFileRepository(t)
+
+			fileService := &service.FileService{
+				Repo: repo,
+			}
+
+			if tc.role == "admin" {
+
+				repo.On(
+					"GetAll",
+					mock.Anything,
+				).Return(nil, dbErr).Once()
+			} else {
+				repo.On(
+					"GetAllByUser",
+					mock.Anything,
+					mock.Anything,
+				).Return(nil, dbErr).Once()
+			}
+
+			got, err := fileService.GetAllData(context.Background(), 1, tc.role)
+			if got != nil {
+				t.Fatalf("want nil meta, got %+v", got)
+			}
+
+			if !errors.Is(err, dbErr) {
+				t.Fatalf("want %v, got %v", dbErr, err)
+			}
+		})
+	}
+}
+
+func TestGetObjectSuccess(t *testing.T) {
+	existingFile := &models.FileMeta{
+		ObjectName:   "uuid-test.txt",
+		OriginalName: "test.txt",
+		Bucket:       "test-bucket",
+		Size:         100,
+		UserID:       1,
+	}
+
+	testObj := new(minio.Object)
+
+	testCases := []struct {
+		name         string
+		role         string
+		existingFile *models.FileMeta
+		testObj      *minio.Object
+	}{
+		{
+			name:         "Success getting for admin",
+			role:         "admin",
+			existingFile: existingFile,
+			testObj:      testObj,
+		},
+		{
+			name:         "Success getting for user",
+			role:         "user",
+			existingFile: existingFile,
+			testObj:      testObj,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			fileService, repo, storage := createFileServiceWithStorageAndRepo(t)
+
+			if tc.role == "admin" {
+				repo.On(
+					"GetByID",
+					mock.Anything,
+					mock.Anything,
+				).Return(tc.existingFile, nil).Once()
+			} else {
+				repo.On(
+					"GetByIDByUser",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+				).Return(tc.existingFile, nil).Once()
+			}
+
+			storage.On(
+				"GetObject",
+				mock.Anything,
+				tc.existingFile.ObjectName,
+			).Return(tc.testObj, nil).Once()
+
+			meta, obj, err := fileService.GetObject(context.Background(), 1, 1, tc.role)
+			if meta == nil {
+				t.Fatal("meta data can't be empty")
+			}
+
+			if obj != tc.testObj {
+				t.Fatal("returned object is not the expected object")
+			}
+
+			if err != nil {
+				t.Fatalf("want nil error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestGetObjectMetaError(t *testing.T) {
+	dbErr := errors.New("data base error")
+
+	testCases := []struct {
+		name string
+		role string
+	}{
+		{
+			name: "Error for getting meta for admin",
+			role: "admin",
+		},
+		{
+			name: "Error for getting meta for user",
+			role: "user",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := mocks.NewFileRepository(t)
+
+			fileService := &service.FileService{
+				Repo: repo,
+			}
+
+			if tc.role == "admin" {
+				repo.On(
+					"GetByID",
+					mock.Anything,
+					mock.Anything,
+				).Return(nil, dbErr).Once()
+			} else {
+				repo.On(
+					"GetByIDByUser",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+				).Return(nil, dbErr).Once()
+			}
+
+			meta, obj, err := fileService.GetObject(context.Background(), 1, 1, tc.role)
+			if !errors.Is(err, dbErr) {
+				t.Fatalf("want %v, got %v", dbErr, err)
+			}
+
+			if meta != nil {
+				t.Fatalf("want nil meta, got %+v", meta)
+			}
+
+			if obj != nil {
+				t.Fatalf("want nil obj, got %+v", obj)
+			}
+		})
+	}
+}
+
+func TestGetObjectMetaNil(t *testing.T) {
+	testCases := []struct {
+		name string
+		role string
+	}{
+		{
+			name: "Error for getting meta for admin",
+			role: "admin",
+		},
+		{
+			name: "Error for getting meta for user",
+			role: "user",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			fileService, repo := createFileServiceOnlyRepo(t)
+
+			if tc.role == "admin" {
+				repo.On(
+					"GetByID",
+					mock.Anything,
+					mock.Anything,
+				).Return(nil, nil).Once()
+			} else {
+				repo.On(
+					"GetByIDByUser",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+				).Return(nil, nil).Once()
+			}
+
+			meta, obj, err := fileService.GetObject(context.Background(), 1, 1, tc.role)
+			if !errors.Is(err, service.ErrFileNotFound) {
+				t.Fatalf("want %v, got %v", service.ErrFileNotFound, err)
+			}
+
+			if meta != nil {
+				t.Fatalf("want nil meta, got %+v", meta)
+			}
+
+			if obj != nil {
+				t.Fatalf("want nil obj, got %+v", obj)
+			}
+		})
+	}
+}
+
+func TestGetObjectMinioError(t *testing.T) {
+	minioErr := errors.New("minio error")
+
+	existingFile := &models.FileMeta{
+		ObjectName:   "uuid-test.txt",
+		OriginalName: "test.txt",
+		Bucket:       "test-bucket",
+		Size:         100,
+		UserID:       1,
+	}
+
+	testCases := []struct {
+		name         string
+		role         string
+		existingFile *models.FileMeta
+	}{
+		{
+			name:         "Error for getting meta for admin",
+			role:         "admin",
+			existingFile: existingFile,
+		},
+		{
+			name:         "Error for getting meta for user",
+			role:         "user",
+			existingFile: existingFile,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			fileService, repo, storage := createFileServiceWithStorageAndRepo(t)
+
+			if tc.role == "admin" {
+				repo.On(
+					"GetByID",
+					mock.Anything,
+					mock.Anything,
+				).Return(tc.existingFile, nil).Once()
+			} else {
+				repo.On(
+					"GetByIDByUser",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+				).Return(tc.existingFile, nil).Once()
+			}
+
+			storage.On(
+				"GetObject",
+				mock.Anything,
+				tc.existingFile.ObjectName,
+			).Return(nil, minioErr).Once()
+
+			meta, obj, err := fileService.GetObject(context.Background(), 1, 1, tc.role)
+			if !errors.Is(err, minioErr) {
+				t.Fatalf("want %v, got %v", minioErr, err)
+			}
+
+			if meta != nil {
+				t.Fatalf("want nil meta, got %+v", meta)
+			}
+
+			if obj != nil {
+				t.Fatalf("want nil object, got %+v", obj)
+			}
+		})
+	}
+}
+
 func createTestFile(t *testing.T) (multipart.File, *multipart.FileHeader) {
 	t.Helper()
 
@@ -590,4 +896,30 @@ func createTestFile(t *testing.T) (multipart.File, *multipart.FileHeader) {
 	})
 
 	return file, header
+}
+
+func createFileServiceWithStorageAndRepo(t *testing.T) (*service.FileService, *mocks.FileRepository, *mocks.FileStorage) {
+	t.Helper()
+
+	repo := mocks.NewFileRepository(t)
+	storage := mocks.NewFileStorage(t)
+
+	fileService := &service.FileService{
+		Repo:    repo,
+		Storage: storage,
+	}
+
+	return fileService, repo, storage
+}
+
+func createFileServiceOnlyRepo(t *testing.T) (*service.FileService, *mocks.FileRepository) {
+	t.Helper()
+
+	repo := mocks.NewFileRepository(t)
+
+	fileService := &service.FileService{
+		Repo: repo,
+	}
+
+	return fileService, repo
 }
