@@ -40,7 +40,7 @@ type FileRepository interface {
 	GetAllByUser(context.Context, uint) ([]models.FileMeta, error)
 }
 
-var errFileNotFound = errors.New("file not found")
+var ErrFileNotFound = errors.New("file not found")
 
 func (s *FileService) UploadFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, userID uint) (*models.FileMeta, error) {
 	objectName := fmt.Sprintf("%s-%s", uuid.New().String(), header.Filename)
@@ -91,7 +91,7 @@ func (s *FileService) DeleteFile(ctx context.Context, id int, userID uint, role 
 	}
 
 	if meta == nil {
-		return errFileNotFound
+		return ErrFileNotFound
 	}
 
 	// 2. Удалить из MinIO

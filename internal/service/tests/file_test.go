@@ -188,9 +188,157 @@ func TestUploadFilePostgresErr(t *testing.T) {
 	}
 }
 
-func TestDeleteFileSuccessUser(t *testing.T) {
-	repo := mocks.NewFileRepository(t)
-	storage := mocks.NewFileStorage(t)
+func TestDeleteFileSuccess(t *testing.T) {
+	existingFile := &models.FileMeta{
+		ObjectName:   "uuid-test.txt",
+		OriginalName: "test.txt",
+		Bucket:       "test-bucket",
+		Size:         100,
+		UserID:       1,
+	}
+
+	testCases := []struct {
+		name         string
+		role         string
+		existingFile *models.FileMeta
+	}{
+		{
+			name:         "Delete test for admin",
+			role:         "admin",
+			existingFile: existingFile,
+		},
+		{
+			name:         "Delete test for user",
+			role:         "user",
+			existingFile: existingFile,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := mocks.NewFileRepository(t)
+			storage := mocks.NewFileStorage(t)
+
+			fileService := &service.FileService{
+				Repo:    repo,
+				Storage: storage,
+			}
+
+			var userID uint
+			var fileID int
+
+			if tc.role == "user" {
+
+				repo.On("GetByIDByUser",
+					mock.Anything,
+					mock.MatchedBy(func(id int) bool {
+						fileID = id
+						return true
+					}),
+					mock.MatchedBy(func(id uint) bool {
+						userID = id
+						return true
+					}),
+				).Return(tc.existingFile, nil).Once()
+			} else {
+
+				repo.On("GetByID",
+					mock.Anything,
+					mock.MatchedBy(func(id int) bool {
+						fileID = id
+						return true
+					}),
+				).Return(tc.existingFile, nil).Once()
+			}
+
+			storage.On(
+				"Delete",
+				mock.Anything,
+				mock.MatchedBy(func(objectName string) bool {
+					return objectName == tc.existingFile.ObjectName
+				}),
+			).Return(nil).Once()
+
+			if tc.role == "user" {
+				repo.On(
+					"DeleteByUser",
+					mock.Anything,
+					mock.MatchedBy(func(id int) bool {
+						return fileID == id
+					}),
+					mock.MatchedBy(func(id uint) bool {
+						return userID == id
+					}),
+				).Return(nil).Once()
+			} else {
+				repo.On(
+					"Delete",
+					mock.Anything,
+					mock.MatchedBy(func(id int) bool {
+						return fileID == id
+					}),
+				).Return(nil).Once()
+			}
+			err := fileService.DeleteFile(context.Background(), 1, 1, tc.role)
+			if err != nil {
+				t.Fatalf("expected nil, got %v", err)
+			}
+		})
+	}
+}
+
+func TestDeleteFileGetUserError(t *testing.T) {
+	dbErr := errors.New("data base error")
+
+	testCases := []struct {
+		name string
+		role string
+	}{
+		{
+			name: "Error in admin realization",
+			role: "admin",
+		},
+		{
+			name: "Error in user realization",
+			role: "user",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := mocks.NewFileRepository(t)
+			storage := mocks.NewFileStorage(t)
+
+			fileService := &service.FileService{
+				Repo:    repo,
+				Storage: storage,
+			}
+
+			if tc.role == "admin" {
+				repo.On(
+					"GetByID",
+					mock.Anything,
+					mock.Anything,
+				).Return(nil, dbErr).Once()
+			} else {
+				repo.On(
+					"GetByIDByUser",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+				).Return(nil, dbErr).Once()
+			}
+
+			err := fileService.DeleteFile(context.Background(), 1, 1, tc.role)
+			if !errors.Is(err, dbErr) {
+				t.Fatalf("want %v, got %v", dbErr, err)
+			}
+		})
+	}
+}
+
+func TestDeleteFileMinioError(t *testing.T) {
+	storageErr := errors.New("minio error")
 
 	existingFile := &models.FileMeta{
 		ObjectName:   "uuid-test.txt",
@@ -200,48 +348,202 @@ func TestDeleteFileSuccessUser(t *testing.T) {
 		UserID:       1,
 	}
 
-	fileService := &service.FileService{
-		Repo:    repo,
-		Storage: storage,
+	testCases := []struct {
+		name         string
+		role         string
+		existingFile *models.FileMeta
+	}{
+		{
+			name:         "Error in admin realization",
+			role:         "admin",
+			existingFile: existingFile,
+		},
+		{
+			name:         "Error in user realization",
+			role:         "user",
+			existingFile: existingFile,
+		},
 	}
 
-	var userID uint
-	var fileID int
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := mocks.NewFileRepository(t)
+			storage := mocks.NewFileStorage(t)
 
-	repo.On("GetByIDByUser",
-		mock.Anything,
-		mock.MatchedBy(func(id int) bool {
-			fileID = id
-			return true
-		}),
-		mock.MatchedBy(func(id uint) bool {
-			userID = id
-			return true
-		}),
-	).Return(existingFile, nil).Once()
+			fileService := &service.FileService{
+				Repo:    repo,
+				Storage: storage,
+			}
 
-	storage.On(
-		"Delete",
-		mock.Anything,
-		mock.MatchedBy(func(objectName string) bool {
-			return objectName == existingFile.ObjectName
-		}),
-	).Return(nil).Once()
+			if tc.role == "admin" {
+				repo.On(
+					"GetByID",
+					mock.Anything,
+					mock.Anything,
+				).Return(tc.existingFile, nil).Once()
+			} else {
+				repo.On(
+					"GetByIDByUser",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+				).Return(tc.existingFile, nil).Once()
+			}
 
-	repo.On(
-		"DeleteByUser",
-		mock.Anything,
-		mock.MatchedBy(func(id int) bool {
-			return fileID == id
-		}),
-		mock.MatchedBy(func(id uint) bool {
-			return userID == id
-		}),
-	).Return(nil).Once()
+			storage.On(
+				"Delete",
+				mock.Anything,
+				mock.Anything,
+			).Return(storageErr).Once()
 
-	err := fileService.DeleteFile(context.Background(), 1, 1, "user")
-	if err != nil {
-		t.Fatalf("expected nil, got %v", err)
+			err := fileService.DeleteFile(context.Background(), 1, 1, tc.role)
+			if err == nil {
+				t.Fatal("expected err, got nil")
+			}
+
+			if !errors.Is(err, storageErr) {
+				t.Fatalf("got %v, want %v", err, storageErr)
+			}
+		})
+	}
+}
+
+func TestDeleteFileNilMetaError(t *testing.T) {
+	testCases := []struct {
+		name string
+		role string
+	}{
+		{
+			name: "Error in admin realization",
+			role: "admin",
+		},
+		{
+			name: "Error in user realization",
+			role: "user",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := mocks.NewFileRepository(t)
+			storage := mocks.NewFileStorage(t)
+
+			fileService := &service.FileService{
+				Repo:    repo,
+				Storage: storage,
+			}
+
+			if tc.role == "admin" {
+				repo.On(
+					"GetByID",
+					mock.Anything,
+					mock.Anything,
+				).Return(nil, nil).Once()
+			} else {
+				repo.On(
+					"GetByIDByUser",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+				).Return(nil, nil).Once()
+			}
+
+			err := fileService.DeleteFile(context.Background(), 1, 1, tc.role)
+			if err == nil {
+				t.Fatal("want err, got nil")
+			}
+
+			if !errors.Is(err, service.ErrFileNotFound) {
+				t.Fatalf("want %v, got %v", service.ErrFileNotFound, err)
+			}
+		})
+	}
+}
+
+func TestDeleteFilePostgresError(t *testing.T) {
+	postgresErr := errors.New("postgres error")
+
+	existingFile := &models.FileMeta{
+		ObjectName:   "uuid-test.txt",
+		OriginalName: "test.txt",
+		Bucket:       "test-bucket",
+		Size:         100,
+		UserID:       1,
+	}
+
+	testCases := []struct {
+		name         string
+		role         string
+		existingFile *models.FileMeta
+	}{
+		{
+			name:         "Error in admin realization",
+			role:         "admin",
+			existingFile: existingFile,
+		},
+		{
+			name:         "Error in user realization",
+			role:         "user",
+			existingFile: existingFile,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := mocks.NewFileRepository(t)
+			storage := mocks.NewFileStorage(t)
+
+			fileService := &service.FileService{
+				Repo:    repo,
+				Storage: storage,
+			}
+
+			if tc.role == "admin" {
+				repo.On(
+					"GetByID",
+					mock.Anything,
+					mock.Anything,
+				).Return(tc.existingFile, nil).Once()
+			} else {
+				repo.On(
+					"GetByIDByUser",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+				).Return(tc.existingFile, nil).Once()
+			}
+
+			storage.On(
+				"Delete",
+				mock.Anything,
+				mock.Anything,
+			).Return(nil).Once()
+
+			if tc.role == "user" {
+				repo.On(
+					"DeleteByUser",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+				).Return(postgresErr).Once()
+			} else {
+				repo.On(
+					"Delete",
+					mock.Anything,
+					mock.Anything,
+				).Return(postgresErr).Once()
+			}
+
+			err := fileService.DeleteFile(context.Background(), 1, 1, tc.role)
+			if err == nil {
+				t.Fatal("want err, got nil")
+			}
+
+			if !errors.Is(err, postgresErr) {
+				t.Fatalf("want %v, got %v", postgresErr, err)
+			}
+
+		})
 	}
 }
 
