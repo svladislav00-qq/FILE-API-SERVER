@@ -10,7 +10,7 @@ type FileMeta struct {
 	Size         int
 
 	UserID uint
-	User   User
+	User   User `gorm:"foreignKey:UserID"`
 }
 
 type User struct {

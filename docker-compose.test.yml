@@ -1,0 +1,34 @@
+services:
+  postgres-test:
+    image: postgres:15
+    container_name: file_saver_postgres_test
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: file_saver_test
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d file_saver_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  
+  minio-test:
+    image: minio/minio
+    container_name: file_saver_minio_test
+    command: server /data --address ":9001" --console-address ":9000"
+    environment:
+      MINIO_ROOT_USER: test_minio
+      MINIO_ROOT_PASSWORD: test_minio_password
+    ports:
+      - "9011:9001"
+      - "9010:9000"
+    volumes:
+      - minio_test_data:/data
+
+volumes:
+  postgres_test_data:
+  minio_test_data:

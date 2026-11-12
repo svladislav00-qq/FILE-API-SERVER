@@ -49,3 +49,10 @@ func CreateCloud() {
 		fmt.Println("Created bucket:", bucket)
 	}
 }
+
+func NewMinioClient(endpoint, accessKey, secretKey string, useSSL bool) (*minio.Client, error) {
+	return minio.New(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
+		Secure: useSSL,
+	})
+}
