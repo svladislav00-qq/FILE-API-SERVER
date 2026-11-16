@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -158,6 +159,106 @@ func TestUploadFile(t *testing.T) {
 		t.Errorf("uploaded content doesn't match original content")
 	}
 
+}
+
+func TestUploadFilePostgresError(t *testing.T) {
+	env := setupTestEnvironment(t)
+
+	testUser := &models.User{
+		Email: uuid.NewString() + "testUser@gmail.test",
+		Name:  "Tester2000",
+		Role:  "user",
+	}
+
+	if err := env.DB.Create(testUser).Error; err != nil {
+		t.Fatalf("failed to create test user: %v", err)
+	}
+
+	if !env.DB.Migrator().HasTable(&models.FileMeta{}) {
+		t.Fatal("file_metas table does not exist")
+	}
+
+	triggerSQL := `
+		CREATE OR REPLACE FUNCTION reject_file_insert()
+		RETURNS TRIGGER AS $$
+		BEGIN
+    		RAISE EXCEPTION 'simulated database error';
+		END;
+		$$ LANGUAGE plpgsql;
+
+		CREATE TRIGGER reject_file_insert_trigger
+		BEFORE INSERT ON file_meta
+		FOR EACH ROW
+		EXECUTE FUNCTION reject_file_insert();
+		`
+
+	if err := env.DB.Exec(triggerSQL).Error; err != nil {
+		t.Fatalf("failed to create trigger: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if err := env.DB.Exec(
+			"DROP TRIGGER IF EXISTS reject_file_insert_trigger ON file_meta",
+		).Error; err != nil {
+			t.Errorf("failed to drop trigger: %v", err)
+		}
+
+		if err := env.DB.Exec(
+			"DROP FUNCTION IF EXISTS reject_file_insert()",
+		).Error; err != nil {
+			t.Errorf("failed to drop function: %v", err)
+		}
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	content := []byte("Hello, integration testing!")
+
+	filename := uuid.NewString() + ".txt"
+
+	file, header := createMultipartFile(t, filename, content)
+
+	got, err := env.Service.UploadFile(ctx, file, header, testUser.ID)
+
+	if got != nil {
+		t.Fatalf("want empty meta, got %+v", got)
+	}
+
+	if err == nil {
+		t.Fatalf("expected err, got nil")
+	}
+
+	found := false
+
+	for object := range env.Minio.ListObjects(
+		ctx,
+		env.Bucket,
+		minio.ListObjectsOptions{Recursive: true},
+	) {
+		if object.Err != nil {
+			t.Fatalf("failed to list MinIO objects: %v", object.Err)
+		}
+
+		if strings.HasSuffix(object.Key, "-"+filename) {
+			found = true
+		}
+	}
+
+	if found {
+		t.Fatal("object still exists in MinIO after database error")
+	}
+
+	var count int64
+
+	err = env.DB.Model(&models.FileMeta{}).Where("object_name LIKE ?", "%-"+filename).Count(&count).Error
+	if err != nil {
+		t.Fatalf("failed to count file metadata: %v", err)
+	}
+
+	if count != 0 {
+		t.Fatalf("expected 0 metadata records, got %d", count)
+	}
 }
 
 func createMultipartFile(t *testing.T, filename string, content []byte) (multipart.File, *multipart.FileHeader) {
