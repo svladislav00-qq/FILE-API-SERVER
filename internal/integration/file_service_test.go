@@ -261,6 +261,107 @@ func TestUploadFilePostgresError(t *testing.T) {
 	}
 }
 
+func TestDeleteFile(t *testing.T) {
+	env := setupTestEnvironment(t)
+
+	testUser := &models.User{
+		Email: uuid.NewString() + "testUser@gmail.test",
+		Name:  "Tester2000",
+		Role:  "user",
+	}
+
+	var meta *models.FileMeta
+
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cleanupCancel()
+
+		if meta != nil {
+
+			if err := env.Minio.RemoveObject(
+				cleanupCtx,
+				env.Bucket,
+				meta.ObjectName,
+				minio.RemoveObjectOptions{},
+			); err != nil {
+				t.Errorf("failed to remove MinIO object: %v", err)
+			}
+
+			if err := env.DB.Unscoped().Delete(&models.FileMeta{}, meta.ID).Error; err != nil {
+				t.Errorf("failed to delete file metadata: %v", err)
+			}
+
+		}
+		if err := env.DB.Unscoped().Delete(&models.User{}, testUser.ID).Error; err != nil {
+			t.Errorf("failed to delete test user: %v", err)
+		}
+	})
+
+	err := env.DB.Create(testUser).Error
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	content := []byte("Hello, integration test")
+
+	filename := uuid.NewString() + ".txt"
+
+	file, header := createMultipartFile(t, filename, content)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	meta, err = env.Service.UploadFile(ctx, file, header, testUser.ID)
+	if err != nil {
+		t.Fatalf("failed to upload file: %v", err)
+	}
+
+	if meta == nil {
+		t.Fatal("meta file can't be empty")
+	}
+
+	var savedMeta models.FileMeta
+
+	if err := env.DB.First(&savedMeta, meta.ID).Error; err != nil {
+		t.Fatalf("file meta was not saved: %v", err)
+	}
+
+	err = env.Service.DeleteFile(ctx, int(meta.ID), testUser.ID, testUser.Role)
+	if err != nil {
+		t.Fatalf("failed to delete file: %v", err)
+	}
+
+	found := false
+
+	for object := range env.Minio.ListObjects(
+		ctx,
+		env.Bucket,
+		minio.ListObjectsOptions{Recursive: true},
+	) {
+		if object.Err != nil {
+			t.Fatalf("failed to list MinIO objects: %v", object.Err)
+		}
+
+		if strings.HasSuffix(object.Key, "-"+filename) {
+			found = true
+		}
+	}
+
+	if found {
+		t.Fatal("object still exists in MinIO after deletion")
+	}
+
+	var count int64
+
+	if err := env.DB.Model(&models.FileMeta{}).Where("id = ?", meta.ID).Count(&count).Error; err != nil {
+		t.Fatalf("failed to check file metadata: %v", err)
+	}
+
+	if count != 0 {
+		t.Fatalf("expected 0 metadata records, got %d", count)
+	}
+}
+
 func createMultipartFile(t *testing.T, filename string, content []byte) (multipart.File, *multipart.FileHeader) {
 	t.Helper()
 
